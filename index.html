@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BrowserHunter</title>
+    <link rel="stylesheet" href="styles.css">
+    <!-- Three.js from CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Ammo.js from CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ammo.js/2.0.0/ammo.js"></script>
+</head>
+<body>
+    <div id="game-container">
+        <div id="hud">
+            <div id="score">Score: <span id="score-value">0</span></div>
+            <div id="health">Health: <span id="health-value">100</span></div>
+        </div>
+        <div id="game-over" class="hidden">
+            <h2>Game Over</h2>
+            <p>Final Score: <span id="final-score">0</span></p>
+            <button id="restart-button">Play Again</button>
+        </div>
+    </div>
+    <script src="models.js"></script>
+    <script src="game.js"></script>
+</body>
+</html> 
