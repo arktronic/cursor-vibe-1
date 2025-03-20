@@ -20,6 +20,7 @@ class BrowserHunter {
         this.roadSpeed = 0.5; // Base road speed
         this.wasSpacePressed = false; // Track if space was pressed in previous frame
         this.explosions = []; // Add explosions array
+        this.animationFrameId = null; // Track animation frame ID
 
         // Audio
         this.backgroundMusic = document.getElementById('background-music');
@@ -46,7 +47,7 @@ class BrowserHunter {
         // Initialize game
         this.init();
         this.setupEventListeners();
-        this.animate();
+        this.startAnimation();
     }
 
     init() {
@@ -243,17 +244,51 @@ class BrowserHunter {
         }
     }
 
-    startGame() {
-        this.gameStarted = true;
-        document.getElementById('start-screen').style.display = 'none';
+    startAnimation() {
+        // Only start animation if game is started
+        if (this.gameStarted) {
+            this.animate();
+        }
+    }
+
+    animate() {
+        this.animationFrameId = requestAnimationFrame(() => this.animate());
         
-        // Only play music if the checkbox is checked
-        if (document.getElementById('music-toggle').checked) {
-            this.backgroundMusic.play().catch(error => {
-                console.log("Audio playback failed:", error);
-            });
+        // Only update game state if the game is started and not over
+        if (this.gameStarted && !this.gameOver) {
+            this.update();
         }
         
+        // Only render if the game is not over
+        if (!this.gameOver) {
+            this.renderer.render(this.scene, this.camera);
+        }
+    }
+
+    startGame() {
+        // Reset game state
+        this.score = 0;
+        this.health = 100;
+        this.gameOver = false;
+        this.gameStarted = true;
+        this.projectiles = [];
+        this.enemies = [];
+        this.explosions = [];
+        this.roadSpeed = 0.5;
+
+        // Reset UI
+        document.getElementById('score-value').textContent = '0';
+        document.getElementById('health-value').textContent = '100';
+        document.getElementById('game-over').classList.add('hidden');
+        document.getElementById('start-screen').style.display = 'none';
+
+        // Start background music if enabled
+        if (document.getElementById('music-toggle').checked) {
+            this.backgroundMusic.play();
+        }
+
+        // Start animation and enemy spawning
+        this.startAnimation();
         this.spawnEnemy();
     }
 
@@ -509,11 +544,22 @@ class BrowserHunter {
 
     endGame() {
         this.gameOver = true;
+        // Cancel animation frame when game is over
+        if (this.animationFrameId) {
+            cancelAnimationFrame(this.animationFrameId);
+            this.animationFrameId = null;
+        }
         document.getElementById('game-over').classList.remove('hidden');
         document.getElementById('final-score').textContent = Math.floor(this.score);
     }
 
     restart() {
+        // Cancel any existing animation frame
+        if (this.animationFrameId) {
+            cancelAnimationFrame(this.animationFrameId);
+            this.animationFrameId = null;
+        }
+
         // Reset game state
         this.score = 0;
         this.health = 100;
@@ -521,7 +567,7 @@ class BrowserHunter {
         this.gameStarted = false;
         this.projectiles = [];
         this.enemies = [];
-        this.explosions = []; // Clear explosions
+        this.explosions = [];
         this.roadSpeed = 0.5;
 
         // Reset UI
@@ -539,12 +585,6 @@ class BrowserHunter {
             this.scene.remove(this.scene.children[0]);
         }
         this.init();
-    }
-
-    animate() {
-        requestAnimationFrame(() => this.animate());
-        this.update();
-        this.renderer.render(this.scene, this.camera);
     }
 
     createExplosion(position) {
