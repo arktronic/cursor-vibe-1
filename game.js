@@ -11,6 +11,7 @@ class BrowserHunter {
         this.score = 0;
         this.health = 100;
         this.gameOver = false;
+        this.gameStarted = false;
         this.keys = {};
         this.projectiles = [];
         this.enemies = [];
@@ -18,6 +19,10 @@ class BrowserHunter {
         this.buildings = []; // Array to track buildings
         this.roadSpeed = 0.5; // Base road speed
         this.wasSpacePressed = false; // Track if space was pressed in previous frame
+
+        // Audio
+        this.backgroundMusic = document.getElementById('background-music');
+        this.backgroundMusic.volume = 0.5; // Set volume to 50%
 
         // Movement boundaries
         this.roadWidth = 20;
@@ -66,9 +71,6 @@ class BrowserHunter {
         // Position camera
         this.camera.position.set(0, 10, 15);
         this.camera.lookAt(this.player.position);
-
-        // Start spawning enemies
-        this.spawnEnemy();
     }
 
     generateBuildings() {
@@ -186,7 +188,6 @@ class BrowserHunter {
         // Keyboard controls
         window.addEventListener('keydown', (e) => {
             this.keys[e.key] = true;
-            // If spacebar was just pressed, shoot
             if (e.key === ' ' && !this.wasSpacePressed) {
                 this.shoot();
             }
@@ -200,10 +201,24 @@ class BrowserHunter {
             this.renderer.setSize(window.innerWidth, window.innerHeight);
         });
 
+        // Play button
+        document.getElementById('play-button').addEventListener('click', () => {
+            this.startGame();
+        });
+
         // Restart button
         document.getElementById('restart-button').addEventListener('click', () => {
             this.restart();
         });
+    }
+
+    startGame() {
+        this.gameStarted = true;
+        document.getElementById('start-screen').style.display = 'none';
+        this.backgroundMusic.play().catch(error => {
+            console.log("Audio playback failed:", error);
+        });
+        this.spawnEnemy();
     }
 
     spawnEnemy() {
@@ -266,7 +281,7 @@ class BrowserHunter {
     }
 
     update() {
-        if (this.gameOver) return;
+        if (!this.gameStarted || this.gameOver) return;
 
         // Player movement with boundary checks
         if (this.keys['ArrowLeft']) {
