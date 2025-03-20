@@ -192,4 +192,30 @@ button:hover {
     #mobile-controls {
         display: flex;
     }
+}
+
+.music-toggle {
+    margin-top: 40px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: white;
+    font-size: 18px;
+    pointer-events: auto;
+}
+
+.music-toggle input[type="checkbox"] {
+    width: 24px;
+    height: 24px;
+    cursor: pointer;
+}
+
+.music-toggle label {
+    cursor: pointer;
+    user-select: none;
+    font-size: 20px;
+}
+
+.music-toggle input[type="checkbox"]:checked + label {
+    color: #4CAF50;
 } 

@@ -245,9 +245,14 @@ class BrowserHunter {
     startGame() {
         this.gameStarted = true;
         document.getElementById('start-screen').style.display = 'none';
-        this.backgroundMusic.play().catch(error => {
-            console.log("Audio playback failed:", error);
-        });
+        
+        // Only play music if the checkbox is checked
+        if (document.getElementById('music-toggle').checked) {
+            this.backgroundMusic.play().catch(error => {
+                console.log("Audio playback failed:", error);
+            });
+        }
+        
         this.spawnEnemy();
     }
 
@@ -455,6 +460,11 @@ class BrowserHunter {
         document.getElementById('score-value').textContent = '0';
         document.getElementById('health-value').textContent = '100';
         document.getElementById('game-over').classList.add('hidden');
+        document.getElementById('start-screen').style.display = 'flex';
+
+        // Stop and reset music
+        this.backgroundMusic.pause();
+        this.backgroundMusic.currentTime = 0;
 
         // Clear scene and reinitialize
         while (this.scene.children.length > 0) {
