@@ -19,6 +19,7 @@ class BrowserHunter {
         this.buildings = []; // Array to track buildings
         this.roadSpeed = 0.5; // Base road speed
         this.wasSpacePressed = false; // Track if space was pressed in previous frame
+        this.explosions = []; // Add explosions array
 
         // Audio
         this.backgroundMusic = document.getElementById('background-music');
@@ -425,6 +426,24 @@ class BrowserHunter {
             return true;
         });
 
+        // Update explosions
+        this.explosions = this.explosions.filter(explosion => {
+            explosion.timeLeft -= 0.016; // Assuming 60fps
+            explosion.particles.forEach(particle => {
+                particle.mesh.position.add(particle.velocity);
+                particle.life -= 0.016;
+                particle.mesh.material.opacity = particle.life;
+            });
+            
+            if (explosion.timeLeft <= 0) {
+                explosion.particles.forEach(particle => {
+                    this.scene.remove(particle.mesh);
+                });
+                return false;
+            }
+            return true;
+        });
+
         // Check collisions
         this.checkCollisions();
 
@@ -441,6 +460,7 @@ class BrowserHunter {
                 for (let enemy of this.enemies) {
                     if (this.checkCollision(proj.mesh, enemy.mesh)) {
                         this.scene.remove(proj.mesh);
+                        this.createExplosion(enemy.mesh.position);
                         this.scene.remove(enemy.mesh);
                         this.enemies = this.enemies.filter(e => e !== enemy);
                         this.score += 100;
@@ -452,6 +472,7 @@ class BrowserHunter {
             else {
                 if (this.checkCollision(proj.mesh, this.player)) {
                     this.scene.remove(proj.mesh);
+                    this.createExplosion(this.player.position);
                     this.health -= 20;
                     document.getElementById('health-value').textContent = this.health;
                     if (this.health <= 0) {
@@ -468,6 +489,8 @@ class BrowserHunter {
         // Check player-enemy collisions
         this.enemies.forEach(enemy => {
             if (this.checkCollision(this.player, enemy.mesh)) {
+                this.createExplosion(this.player.position);
+                this.createExplosion(enemy.mesh.position);
                 this.health -= 20;
                 document.getElementById('health-value').textContent = this.health;
                 if (this.health <= 0) {
@@ -498,6 +521,7 @@ class BrowserHunter {
         this.gameStarted = false;
         this.projectiles = [];
         this.enemies = [];
+        this.explosions = []; // Clear explosions
         this.roadSpeed = 0.5;
 
         // Reset UI
@@ -521,6 +545,18 @@ class BrowserHunter {
         requestAnimationFrame(() => this.animate());
         this.update();
         this.renderer.render(this.scene, this.camera);
+    }
+
+    createExplosion(position) {
+        const particles = Models.createExplosion();
+        particles.forEach(particle => {
+            particle.mesh.position.copy(position);
+            this.scene.add(particle.mesh);
+        });
+        this.explosions.push({
+            particles: particles,
+            timeLeft: 1.0 // Life in seconds
+        });
     }
 }
 

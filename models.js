@@ -368,6 +368,32 @@ const Models = {
         };
         
         return building;
+    },
+    
+    createExplosion() {
+        const particles = [];
+        const particleCount = 20;
+        const particleGeometry = new THREE.SphereGeometry(0.4, 8, 8);
+        const particleMaterial = new THREE.MeshPhongMaterial({ 
+            color: 0xffffff,
+            emissive: 0xffff00,
+            emissiveIntensity: 1.0
+        });
+        
+        for (let i = 0; i < particleCount; i++) {
+            const particle = new THREE.Mesh(particleGeometry, particleMaterial);
+            particles.push({
+                mesh: particle,
+                velocity: new THREE.Vector3(
+                    (Math.random() - 0.5) * 2.0,
+                    (Math.random() - 0.5) * 2.0,
+                    (Math.random() - 0.5) * 2.0
+                ),
+                life: 1.0 // Life in seconds
+            });
+        }
+        
+        return particles;
     }
 };
 
