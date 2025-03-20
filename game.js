@@ -452,6 +452,7 @@ class BrowserHunter {
         this.score = 0;
         this.health = 100;
         this.gameOver = false;
+        this.gameStarted = false;
         this.projectiles = [];
         this.enemies = [];
         this.roadSpeed = 0.5;
