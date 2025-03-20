@@ -1,42 +1,171 @@
 // Basic 3D model creation utilities
 const Models = {
-    // Create a simple car model
+    // Create a realistic car model
     createCar: (color = 0x00ff00) => {
         const car = new THREE.Group();
         
-        // Car body
+        // Main body - more realistic proportions
         const body = new THREE.Mesh(
-            new THREE.BoxGeometry(2, 0.5, 4),
+            new THREE.BoxGeometry(2.2, 0.6, 4.5),
             new THREE.MeshPhongMaterial({ color: color })
         );
-        body.position.y = 0.25;
+        body.position.y = 0.3;
         car.add(body);
         
-        // Car roof
-        const roof = new THREE.Mesh(
-            new THREE.BoxGeometry(1.5, 1.5, 2),
+        // Hood - slightly raised
+        const hood = new THREE.Mesh(
+            new THREE.BoxGeometry(1.8, 0.2, 1.2),
             new THREE.MeshPhongMaterial({ color: color })
         );
-        roof.position.set(0, 1.25, 0);
+        hood.position.set(0, 0.4, -1.5);
+        hood.rotation.x = -Math.PI / 12;
+        car.add(hood);
+        
+        // Trunk - slightly raised
+        const trunk = new THREE.Mesh(
+            new THREE.BoxGeometry(1.8, 0.2, 1.2),
+            new THREE.MeshPhongMaterial({ color: color })
+        );
+        trunk.position.set(0, 0.4, 1.5);
+        trunk.rotation.x = Math.PI / 12;
+        car.add(trunk);
+        
+        // Roof - more angular
+        const roof = new THREE.Mesh(
+            new THREE.BoxGeometry(1.6, 1.2, 2),
+            new THREE.MeshPhongMaterial({ color: color })
+        );
+        roof.position.set(0, 1.2, 0);
         car.add(roof);
         
-        // Wheels
+        // Windows - black with slight tint
+        const windowMaterial = new THREE.MeshPhongMaterial({ 
+            color: 0x000000,
+            transparent: true,
+            opacity: 0.8
+        });
+        
+        // Front windshield
+        const frontWindshield = new THREE.Mesh(
+            new THREE.BoxGeometry(1.4, 0.1, 0.8),
+            windowMaterial
+        );
+        frontWindshield.position.set(0, 1.2, -1);
+        frontWindshield.rotation.x = -Math.PI / 6;
+        car.add(frontWindshield);
+        
+        // Rear windshield
+        const rearWindshield = new THREE.Mesh(
+            new THREE.BoxGeometry(1.4, 0.1, 0.8),
+            windowMaterial
+        );
+        rearWindshield.position.set(0, 1.2, 1);
+        rearWindshield.rotation.x = Math.PI / 6;
+        car.add(rearWindshield);
+        
+        // Side windows
+        const sideWindowGeometry = new THREE.BoxGeometry(0.1, 0.8, 1.2);
+        const leftWindow = new THREE.Mesh(sideWindowGeometry, windowMaterial);
+        leftWindow.position.set(-0.8, 1.2, 0);
+        car.add(leftWindow);
+        
+        const rightWindow = new THREE.Mesh(sideWindowGeometry, windowMaterial);
+        rightWindow.position.set(0.8, 1.2, 0);
+        car.add(rightWindow);
+        
+        // Wheels - more detailed with rims
         const wheelGeometry = new THREE.CylinderGeometry(0.4, 0.4, 0.4, 16);
         const wheelMaterial = new THREE.MeshPhongMaterial({ color: 0x333333 });
+        const rimGeometry = new THREE.CylinderGeometry(0.25, 0.25, 0.41, 8);
+        const rimMaterial = new THREE.MeshPhongMaterial({ color: 0xcccccc });
         
         const wheelPositions = [
-            [-1.2, 0.4, -1.5], // Front left
-            [1.2, 0.4, -1.5],  // Front right
-            [-1.2, 0.4, 1.5],  // Back left
-            [1.2, 0.4, 1.5]    // Back right
+            [-1.2, 0.4, -1.8], // Front left
+            [1.2, 0.4, -1.8],  // Front right
+            [-1.2, 0.4, 1.8],  // Back left
+            [1.2, 0.4, 1.8]    // Back right
         ];
         
         wheelPositions.forEach(pos => {
             const wheel = new THREE.Mesh(wheelGeometry, wheelMaterial);
+            const rim = new THREE.Mesh(rimGeometry, rimMaterial);
             wheel.rotation.z = Math.PI / 2;
+            rim.rotation.z = Math.PI / 2;
             wheel.position.set(...pos);
+            rim.position.set(...pos);
             car.add(wheel);
+            car.add(rim);
         });
+        
+        // Headlights - more prominent
+        const headlightGeometry = new THREE.BoxGeometry(0.3, 0.2, 0.1);
+        const headlightMaterial = new THREE.MeshPhongMaterial({ 
+            color: 0xffffcc,
+            emissive: 0xffffcc,
+            emissiveIntensity: 0.5
+        });
+        
+        const headlightPositions = [
+            [-1.1, 0.3, -2.2], // Front left
+            [1.1, 0.3, -2.2]   // Front right
+        ];
+        
+        headlightPositions.forEach(pos => {
+            const headlight = new THREE.Mesh(headlightGeometry, headlightMaterial);
+            headlight.position.set(...pos);
+            car.add(headlight);
+        });
+        
+        // Taillights - more prominent
+        const taillightGeometry = new THREE.BoxGeometry(0.3, 0.2, 0.1);
+        const taillightMaterial = new THREE.MeshPhongMaterial({ 
+            color: 0xff0000,
+            emissive: 0xff0000,
+            emissiveIntensity: 0.5
+        });
+        
+        const taillightPositions = [
+            [-1.1, 0.3, 2.2], // Back left
+            [1.1, 0.3, 2.2]   // Back right
+        ];
+        
+        taillightPositions.forEach(pos => {
+            const taillight = new THREE.Mesh(taillightGeometry, taillightMaterial);
+            taillight.position.set(...pos);
+            car.add(taillight);
+        });
+        
+        // Grill
+        const grill = new THREE.Mesh(
+            new THREE.BoxGeometry(1.2, 0.8, 0.1),
+            new THREE.MeshPhongMaterial({ color: 0x222222 })
+        );
+        grill.position.set(0, 0.3, -2.2);
+        car.add(grill);
+        
+        // Bumpers
+        const bumperGeometry = new THREE.BoxGeometry(2.4, 0.2, 0.4);
+        const bumperMaterial = new THREE.MeshPhongMaterial({ color: 0x444444 });
+        
+        const frontBumper = new THREE.Mesh(bumperGeometry, bumperMaterial);
+        frontBumper.position.set(0, 0.1, -2.4);
+        car.add(frontBumper);
+        
+        const rearBumper = new THREE.Mesh(bumperGeometry, bumperMaterial);
+        rearBumper.position.set(0, 0.1, 2.4);
+        car.add(rearBumper);
+        
+        // Add a simple shadow
+        const shadowGeometry = new THREE.PlaneGeometry(2.4, 4.7);
+        const shadowMaterial = new THREE.MeshBasicMaterial({ 
+            color: 0x000000,
+            transparent: true,
+            opacity: 0.3
+        });
+        const shadow = new THREE.Mesh(shadowGeometry, shadowMaterial);
+        shadow.rotation.x = -Math.PI / 2;
+        shadow.position.y = 0.01;
+        car.add(shadow);
         
         return car;
     },
@@ -122,21 +251,114 @@ const Models = {
         return roadGroup;
     },
     
-    // Create a building with random size
+    // Create a building with random size and details
     createBuilding: () => {
+        const building = new THREE.Group();
+        
         // Randomize building dimensions
         const width = 3 + Math.random() * 4;  // Width between 3 and 7
         const height = 5 + Math.random() * 10; // Height between 5 and 15
         const depth = 3 + Math.random() * 4;   // Depth between 3 and 7
         
-        const building = new THREE.Mesh(
+        // Main building body
+        const body = new THREE.Mesh(
             new THREE.BoxGeometry(width, height, depth),
             new THREE.MeshPhongMaterial({ 
                 color: 0x808080,
                 shininess: 0
             })
         );
-        building.position.y = height / 2;
+        body.position.y = height / 2;
+        building.add(body);
+        
+        // Windows - black with slight tint
+        const windowMaterial = new THREE.MeshPhongMaterial({ 
+            color: 0x000000,
+            transparent: true,
+            opacity: 0.8
+        });
+        
+        // Calculate window positions and sizes
+        const windowWidth = width * 0.2;  // Windows are 20% of building width
+        const windowHeight = height * 0.15; // Windows are 15% of building height
+        const windowDepth = 0.1; // Slight depth for windows
+        
+        // Front windows
+        const frontWindowGeometry = new THREE.BoxGeometry(windowWidth, windowHeight, windowDepth);
+        const frontWindowMaterial = windowMaterial.clone();
+        
+        // Create windows in a grid pattern
+        const windowRows = Math.floor(height / (windowHeight * 1.5));
+        const windowCols = Math.floor(width / (windowWidth * 1.5));
+        
+        for (let row = 0; row < windowRows; row++) {
+            for (let col = 0; col < windowCols; col++) {
+                const window = new THREE.Mesh(frontWindowGeometry, frontWindowMaterial);
+                window.position.set(
+                    (col - (windowCols - 1) / 2) * (windowWidth * 1.5),
+                    (row - (windowRows - 1) / 2) * (windowHeight * 1.5) + height / 2,
+                    depth / 2 + windowDepth / 2
+                );
+                building.add(window);
+            }
+        }
+        
+        // Back windows (same pattern)
+        for (let row = 0; row < windowRows; row++) {
+            for (let col = 0; col < windowCols; col++) {
+                const window = new THREE.Mesh(frontWindowGeometry, frontWindowMaterial);
+                window.position.set(
+                    (col - (windowCols - 1) / 2) * (windowWidth * 1.5),
+                    (row - (windowRows - 1) / 2) * (windowHeight * 1.5) + height / 2,
+                    -depth / 2 - windowDepth / 2
+                );
+                building.add(window);
+            }
+        }
+        
+        // Side windows
+        const sideWindowGeometry = new THREE.BoxGeometry(windowDepth, windowHeight, windowWidth);
+        const sideWindowMaterial = windowMaterial.clone();
+        
+        // Left side windows
+        for (let row = 0; row < windowRows; row++) {
+            for (let col = 0; col < Math.floor(depth / (windowWidth * 1.5)); col++) {
+                const window = new THREE.Mesh(sideWindowGeometry, sideWindowMaterial);
+                window.position.set(
+                    -width / 2 - windowDepth / 2,
+                    (row - (windowRows - 1) / 2) * (windowHeight * 1.5) + height / 2,
+                    (col - (Math.floor(depth / (windowWidth * 1.5)) - 1) / 2) * (windowWidth * 1.5)
+                );
+                building.add(window);
+            }
+        }
+        
+        // Right side windows
+        for (let row = 0; row < windowRows; row++) {
+            for (let col = 0; col < Math.floor(depth / (windowWidth * 1.5)); col++) {
+                const window = new THREE.Mesh(sideWindowGeometry, sideWindowMaterial);
+                window.position.set(
+                    width / 2 + windowDepth / 2,
+                    (row - (windowRows - 1) / 2) * (windowHeight * 1.5) + height / 2,
+                    (col - (Math.floor(depth / (windowWidth * 1.5)) - 1) / 2) * (windowWidth * 1.5)
+                );
+                building.add(window);
+            }
+        }
+        
+        // Roof details
+        const roofGeometry = new THREE.BoxGeometry(width + 0.2, 0.2, depth + 0.2);
+        const roofMaterial = new THREE.MeshPhongMaterial({ color: 0x666666 });
+        const roof = new THREE.Mesh(roofGeometry, roofMaterial);
+        roof.position.set(0, height + 0.1, 0);
+        building.add(roof);
+        
+        // Building base/ground
+        const baseGeometry = new THREE.BoxGeometry(width + 0.4, 0.2, depth + 0.4);
+        const baseMaterial = new THREE.MeshPhongMaterial({ color: 0x444444 });
+        const base = new THREE.Mesh(baseGeometry, baseMaterial);
+        base.position.set(0, 0.1, 0);
+        building.add(base);
         
         // Store dimensions for collision detection
         building.userData = {

@@ -17,6 +17,7 @@ class BrowserHunter {
         this.roadSegments = [];
         this.buildings = []; // Array to track buildings
         this.roadSpeed = 0.5; // Base road speed
+        this.wasSpacePressed = false; // Track if space was pressed in previous frame
 
         // Movement boundaries
         this.roadWidth = 20;
@@ -30,11 +31,11 @@ class BrowserHunter {
         this.forwardSpeed = 0.1; // Speed of forward/backward movement
 
         // Building properties
-        this.buildingSpawnDistance = 800; // Increased from 400 to 800 for much further spawn distance
-        this.buildingRecycleDistance = 400; // Increased from 200 to 400 for smoother recycling
-        this.buildingMinDistance = 200; // Increased from 100 to 200 for better spacing
+        this.buildingSpawnDistance = 400; // Reduced from 1200 to 400 for more reasonable distance
+        this.buildingRecycleDistance = 200; // Reduced from 600 to 200 for smoother recycling
+        this.buildingMinDistance = 100; // Reduced from 800 to 100 to allow closer spawning
         this.buildingSideOffset = 15; // How far from the road buildings spawn
-        this.playerSafeDistance = 400; // Increased from 200 to 400 to ensure buildings don't appear too close
+        this.playerSafeDistance = 100; // Reduced from 800 to 100 to allow closer spawning
 
         // Initialize game
         this.init();
@@ -76,24 +77,55 @@ class BrowserHunter {
         this.buildings = [];
 
         // Generate new buildings
-        for (let i = 0; i < 20; i++) { // Increased from 15 to 20 buildings for better coverage
+        for (let i = 0; i < 20; i++) {
             const building = Models.createBuilding();
             
             // Randomly choose left or right side of the road
             const side = Math.random() < 0.5 ? -1 : 1;
             const xOffset = side * (this.roadEdge + this.buildingSideOffset);
             
-            // Position building with random z offset, ensuring minimum distance from player
+            // On initial load, allow buildings to spawn anywhere
             const zOffset = -this.buildingSpawnDistance + (Math.random() * this.buildingSpawnDistance);
             
+            // Set building position
             building.position.set(
                 xOffset,
-                0,
+                0, // Place building on the ground
                 zOffset
             );
             
-            this.scene.add(building);
-            this.buildings.push(building);
+            // Check for overlaps with existing buildings
+            let hasOverlap = false;
+            for (const existingBuilding of this.buildings) {
+                const dx = Math.abs(building.position.x - existingBuilding.position.x);
+                const dz = Math.abs(building.position.z - existingBuilding.position.z);
+                
+                // Get building dimensions
+                const newWidth = building.userData.width;
+                const newDepth = building.userData.depth;
+                const existingWidth = existingBuilding.userData.width;
+                const existingDepth = existingBuilding.userData.depth;
+                
+                // Add some padding between buildings
+                const minDistanceX = (newWidth + existingWidth) / 2 + 2;
+                const minDistanceZ = (newDepth + existingDepth) / 2 + 2;
+                
+                if (dx < minDistanceX && dz < minDistanceZ) {
+                    hasOverlap = true;
+                    break;
+                }
+            }
+            
+            // If no overlap, add the building
+            if (!hasOverlap) {
+                this.scene.add(building);
+                this.buildings.push(building);
+            } else {
+                // If there's an overlap, try again with a different position
+                i--;
+                this.scene.remove(building);
+                continue;
+            }
         }
     }
 
@@ -108,21 +140,57 @@ class BrowserHunter {
                 const side = Math.random() < 0.5 ? -1 : 1;
                 const xOffset = side * (this.roadEdge + this.buildingSideOffset);
                 
-                // Ensure new position is far enough from player
-                const zOffset = -this.buildingSpawnDistance + (Math.random() * this.buildingSpawnDistance);
+                // When recycling, ensure new position is far enough from player
+                const zOffset = -this.buildingSpawnDistance + (Math.random() * (this.buildingSpawnDistance - this.buildingMinDistance));
                 
+                // Set new position
                 building.position.set(
                     xOffset,
-                    0,
+                    0, // Keep building on the ground
                     zOffset
                 );
+                
+                // Check for overlaps with other buildings
+                let hasOverlap = false;
+                for (const existingBuilding of this.buildings) {
+                    if (existingBuilding === building) continue;
+                    
+                    const dx = Math.abs(building.position.x - existingBuilding.position.x);
+                    const dz = Math.abs(building.position.z - existingBuilding.position.z);
+                    
+                    // Get building dimensions
+                    const newWidth = building.userData.width;
+                    const newDepth = building.userData.depth;
+                    const existingWidth = existingBuilding.userData.width;
+                    const existingDepth = existingBuilding.userData.depth;
+                    
+                    // Add some padding between buildings
+                    const minDistanceX = (newWidth + existingWidth) / 2 + 2;
+                    const minDistanceZ = (newDepth + existingDepth) / 2 + 2;
+                    
+                    if (dx < minDistanceX && dz < minDistanceZ) {
+                        hasOverlap = true;
+                        break;
+                    }
+                }
+                
+                // If there's an overlap, try a different position
+                if (hasOverlap) {
+                    building.position.z = -this.buildingSpawnDistance;
+                }
             }
         });
     }
 
     setupEventListeners() {
         // Keyboard controls
-        window.addEventListener('keydown', (e) => this.keys[e.key] = true);
+        window.addEventListener('keydown', (e) => {
+            this.keys[e.key] = true;
+            // If spacebar was just pressed, shoot
+            if (e.key === ' ' && !this.wasSpacePressed) {
+                this.shoot();
+            }
+        });
         window.addEventListener('keyup', (e) => this.keys[e.key] = false);
 
         // Window resize
@@ -142,15 +210,30 @@ class BrowserHunter {
         if (this.gameOver) return;
 
         const enemy = Models.createCar(0xff0000);
+        
+        // Randomize initial position and speed
+        const baseSpeed = 0.15; // Base speed for enemies
+        const speedVariation = 0.1; // How much speed can vary
+        const horizontalSpeed = 0.05; // Base horizontal movement speed
+        const horizontalVariation = 0.03; // How much horizontal speed can vary
+        
+        // Randomize initial x position within road bounds
+        const xPos = (Math.random() - 0.5) * (this.roadWidth - 4); // Leave 2 units margin on each side
+        
         enemy.position.set(
-            (Math.random() - 0.5) * 15,
+            xPos,
             0,
             -200
         );
+        
         this.scene.add(enemy);
         this.enemies.push({
             mesh: enemy,
-            speed: 0.1 + Math.random() * 0.1
+            speed: baseSpeed + Math.random() * speedVariation,
+            horizontalSpeed: (Math.random() - 0.5) * horizontalVariation + horizontalSpeed,
+            direction: Math.random() < 0.5 ? 1 : -1, // Random initial direction
+            directionChangeTimer: Math.random() * 100, // Random timer for direction changes
+            targetX: xPos // Initial target position
         });
 
         // Spawn next enemy after random delay
@@ -211,7 +294,9 @@ class BrowserHunter {
         } else {
             this.roadSpeed = 0.5; // Normal road speed
         }
-        if (this.keys[' ']) this.shoot();
+
+        // Update spacebar state for next frame
+        this.wasSpacePressed = this.keys[' '];
 
         // Update road position
         this.updateRoad();
@@ -222,12 +307,45 @@ class BrowserHunter {
         // Update projectiles
         this.projectiles = this.projectiles.filter(proj => {
             proj.mesh.position.z -= proj.speed;
-            return proj.mesh.position.z > -200;
+            // Remove projectiles that go too far in either direction
+            if (proj.mesh.position.z < -200 || proj.mesh.position.z > 50) {
+                this.scene.remove(proj.mesh);
+                return false;
+            }
+            return true;
         });
 
-        // Update enemies
+        // Update enemies with random movement
         this.enemies = this.enemies.filter(enemy => {
+            // Move forward
             enemy.mesh.position.z += enemy.speed;
+            
+            // Update direction change timer
+            enemy.directionChangeTimer--;
+            
+            // Randomly change direction or target
+            if (enemy.directionChangeTimer <= 0) {
+                // 30% chance to change direction
+                if (Math.random() < 0.3) {
+                    enemy.direction *= -1;
+                }
+                // 20% chance to set a new random target position
+                if (Math.random() < 0.2) {
+                    enemy.targetX = (Math.random() - 0.5) * (this.roadWidth - 4);
+                }
+                // Reset timer with random duration
+                enemy.directionChangeTimer = 50 + Math.random() * 100;
+            }
+            
+            // Move towards target position
+            const dx = enemy.targetX - enemy.mesh.position.x;
+            if (Math.abs(dx) > 0.1) {
+                enemy.mesh.position.x += Math.sign(dx) * enemy.horizontalSpeed;
+            }
+            
+            // Keep within road bounds
+            enemy.mesh.position.x = Math.max(-this.roadEdge, Math.min(this.roadEdge, enemy.mesh.position.x));
+            
             // Remove enemies that go too far behind the player
             if (enemy.mesh.position.z > 50) {
                 this.scene.remove(enemy.mesh);
