@@ -262,18 +262,19 @@ class BrowserHunter {
         const enemy = Models.createCar(0xff0000);
         
         // Randomize initial position and speed
-        const baseSpeed = 0.15; // Base speed for enemies
-        const speedVariation = 0.1; // How much speed can vary
-        const horizontalSpeed = 0.05; // Base horizontal movement speed
-        const horizontalVariation = 0.03; // How much horizontal speed can vary
+        const baseSpeed = 0.25; // Base speed for enemies
+        const speedVariation = 0.15; // Speed variation
+        const horizontalSpeed = 0.05;
+        const horizontalVariation = 0.03;
         
         // Randomize initial x position within road bounds
-        const xPos = (Math.random() - 0.5) * (this.roadWidth - 4); // Leave 2 units margin on each side
+        const xPos = (Math.random() - 0.5) * (this.roadWidth - 4);
         
+        // Spawn enemy behind the player
         enemy.position.set(
             xPos,
             0,
-            -200
+            this.player.position.z - 200 // Spawn 200 units behind the player
         );
         
         this.scene.add(enemy);
@@ -281,25 +282,33 @@ class BrowserHunter {
             mesh: enemy,
             speed: baseSpeed + Math.random() * speedVariation,
             horizontalSpeed: (Math.random() - 0.5) * horizontalVariation + horizontalSpeed,
-            direction: Math.random() < 0.5 ? 1 : -1, // Random initial direction
-            directionChangeTimer: Math.random() * 100, // Random timer for direction changes
-            targetX: xPos // Initial target position
+            direction: Math.random() < 0.5 ? 1 : -1,
+            directionChangeTimer: Math.random() * 100,
+            targetX: xPos,
+            lastShotTime: Date.now(),
+            shootInterval: 2000 + Math.random() * 1000
         });
 
         // Spawn next enemy after random delay
         setTimeout(() => this.spawnEnemy(), 2000 + Math.random() * 3000);
     }
 
-    shoot() {
+    shoot(isEnemy = false) {
         if (this.gameOver) return;
 
-        const projectile = Models.createProjectile();
-        projectile.position.copy(this.player.position);
-        projectile.position.y += 1;
+        const projectile = Models.createProjectile(isEnemy ? 0xff0000 : 0x00ff00); // Red for enemies, green for player
+        if (isEnemy) {
+            projectile.position.copy(this.currentEnemy.position);
+            projectile.position.y += 1;
+        } else {
+            projectile.position.copy(this.player.position);
+            projectile.position.y += 1;
+        }
         this.scene.add(projectile);
         this.projectiles.push({
             mesh: projectile,
-            speed: 0.5
+            speed: isEnemy ? 0.8 : 0.2, // Enemy projectiles move much faster than enemies
+            isEnemy: isEnemy // Add flag to identify enemy projectiles
         });
     }
 
@@ -337,12 +346,12 @@ class BrowserHunter {
         // Forward/backward movement with boundary checks
         if (this.keys['ArrowUp']) {
             this.player.position.z = Math.max(this.maxBackward, this.player.position.z - this.forwardSpeed);
-            this.roadSpeed = 0.7; // Faster road movement when accelerating
+            this.roadSpeed = 0.7;
         } else if (this.keys['ArrowDown']) {
             this.player.position.z = Math.min(this.maxForward, this.player.position.z + this.forwardSpeed);
-            this.roadSpeed = 0.3; // Slower road movement when braking
+            this.roadSpeed = 0.3;
         } else {
-            this.roadSpeed = 0.5; // Normal road speed
+            this.roadSpeed = 0.5;
         }
 
         // Update spacebar state for next frame
@@ -356,16 +365,22 @@ class BrowserHunter {
 
         // Update projectiles
         this.projectiles = this.projectiles.filter(proj => {
-            proj.mesh.position.z -= proj.speed;
+            // Move projectiles in the correct direction based on who shot them
+            if (proj.isEnemy) {
+                proj.mesh.position.z += proj.speed; // Enemy projectiles move forward
+            } else {
+                proj.mesh.position.z -= proj.speed; // Player projectiles move backward
+            }
+            
             // Remove projectiles that go too far in either direction
-            if (proj.mesh.position.z < -200 || proj.mesh.position.z > 50) {
+            if (proj.mesh.position.z < -200 || proj.mesh.position.z > this.player.position.z + 50) {
                 this.scene.remove(proj.mesh);
                 return false;
             }
             return true;
         });
 
-        // Update enemies with random movement
+        // Update enemies with random movement and shooting
         this.enemies = this.enemies.filter(enemy => {
             // Move forward
             enemy.mesh.position.z += enemy.speed;
@@ -375,15 +390,12 @@ class BrowserHunter {
             
             // Randomly change direction or target
             if (enemy.directionChangeTimer <= 0) {
-                // 30% chance to change direction
                 if (Math.random() < 0.3) {
                     enemy.direction *= -1;
                 }
-                // 20% chance to set a new random target position
                 if (Math.random() < 0.2) {
                     enemy.targetX = (Math.random() - 0.5) * (this.roadWidth - 4);
                 }
-                // Reset timer with random duration
                 enemy.directionChangeTimer = 50 + Math.random() * 100;
             }
             
@@ -395,9 +407,18 @@ class BrowserHunter {
             
             // Keep within road bounds
             enemy.mesh.position.x = Math.max(-this.roadEdge, Math.min(this.roadEdge, enemy.mesh.position.x));
+
+            // Enemy shooting logic
+            const currentTime = Date.now();
+            if (currentTime - enemy.lastShotTime > enemy.shootInterval) {
+                this.currentEnemy = enemy.mesh; // Set current enemy before shooting
+                this.shoot(true);
+                enemy.lastShotTime = currentTime;
+            }
             
-            // Remove enemies that go too far behind the player
-            if (enemy.mesh.position.z > 50) {
+            // Remove enemies that go too far behind or ahead of the player
+            const distanceFromPlayer = enemy.mesh.position.z - this.player.position.z;
+            if (distanceFromPlayer > 100 || distanceFromPlayer < -300) {
                 this.scene.remove(enemy.mesh);
                 return false;
             }
@@ -413,32 +434,54 @@ class BrowserHunter {
     }
 
     checkCollisions() {
-        // Check projectile-enemy collisions
-        this.projectiles.forEach((proj, projIndex) => {
-            this.enemies.forEach((enemy, enemyIndex) => {
-                const distance = proj.mesh.position.distanceTo(enemy.mesh.position);
-                if (distance < 2) {
-                    // Remove projectile and enemy
-                    this.scene.remove(proj.mesh);
-                    this.scene.remove(enemy.mesh);
-                    this.projectiles.splice(projIndex, 1);
-                    this.enemies.splice(enemyIndex, 1);
-                    this.score += 100;
+        // Check player projectiles against enemies
+        this.projectiles = this.projectiles.filter(proj => {
+            // Check if projectile is from player
+            if (!proj.isEnemy) {
+                for (let enemy of this.enemies) {
+                    if (this.checkCollision(proj.mesh, enemy.mesh)) {
+                        this.scene.remove(proj.mesh);
+                        this.scene.remove(enemy.mesh);
+                        this.enemies = this.enemies.filter(e => e !== enemy);
+                        this.score += 100;
+                        return false;
+                    }
                 }
-            });
+            }
+            // Check if projectile is from enemy
+            else {
+                if (this.checkCollision(proj.mesh, this.player)) {
+                    this.scene.remove(proj.mesh);
+                    this.health -= 20;
+                    document.getElementById('health-value').textContent = this.health;
+                    if (this.health <= 0) {
+                        this.gameOver = true;
+                        document.getElementById('game-over').classList.remove('hidden');
+                        document.getElementById('final-score').textContent = Math.floor(this.score);
+                    }
+                    return false;
+                }
+            }
+            return true;
         });
 
         // Check player-enemy collisions
         this.enemies.forEach(enemy => {
-            const distance = this.player.position.distanceTo(enemy.mesh.position);
-            if (distance < 2) {
+            if (this.checkCollision(this.player, enemy.mesh)) {
                 this.health -= 20;
                 document.getElementById('health-value').textContent = this.health;
                 if (this.health <= 0) {
-                    this.endGame();
+                    this.gameOver = true;
+                    document.getElementById('game-over').classList.remove('hidden');
+                    document.getElementById('final-score').textContent = Math.floor(this.score);
                 }
             }
         });
+    }
+
+    checkCollision(obj1, obj2) {
+        const distance = obj1.position.distanceTo(obj2.position);
+        return distance < 2;
     }
 
     endGame() {
