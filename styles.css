@@ -116,4 +116,80 @@ button:hover {
 #play-button:hover {
     background: #45a049;
     transform: scale(1.1);
+}
+
+#mobile-controls {
+    position: fixed;
+    bottom: 20px;
+    left: 0;
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    padding: 0 20px;
+    pointer-events: auto;
+}
+
+#movement-controls {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    gap: 5px;
+    width: 150px;
+    height: 150px;
+}
+
+#action-controls {
+    display: flex;
+    align-items: flex-end;
+}
+
+.control-btn {
+    background: rgba(76, 175, 80, 0.7);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    font-size: 24px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    touch-action: manipulation;
+}
+
+.control-btn:active {
+    background: rgba(76, 175, 80, 1);
+    transform: scale(0.95);
+}
+
+#left-btn { grid-column: 1; grid-row: 2; }
+#right-btn { grid-column: 3; grid-row: 2; }
+#up-btn { grid-column: 2; grid-row: 1; }
+#down-btn { grid-column: 2; grid-row: 3; }
+
+#shoot-btn {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: rgba(255, 0, 0, 0.7);
+    font-size: 18px;
+    font-weight: bold;
+}
+
+#shoot-btn:active {
+    background: rgba(255, 0, 0, 1);
+}
+
+@media (min-width: 768px) {
+    #mobile-controls {
+        display: none;
+    }
+}
+
+@media (max-width: 767px) {
+    #mobile-controls {
+        display: flex;
+    }
 } 

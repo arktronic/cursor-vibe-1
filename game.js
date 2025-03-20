@@ -210,6 +210,36 @@ class BrowserHunter {
         document.getElementById('restart-button').addEventListener('click', () => {
             this.restart();
         });
+
+        // Mobile controls
+        const mobileControls = document.getElementById('mobile-controls');
+        if (mobileControls) {
+            // Movement controls
+            document.getElementById('left-btn').addEventListener('touchstart', () => this.keys['ArrowLeft'] = true);
+            document.getElementById('left-btn').addEventListener('touchend', () => this.keys['ArrowLeft'] = false);
+            document.getElementById('right-btn').addEventListener('touchstart', () => this.keys['ArrowRight'] = true);
+            document.getElementById('right-btn').addEventListener('touchend', () => this.keys['ArrowRight'] = false);
+            document.getElementById('up-btn').addEventListener('touchstart', () => this.keys['ArrowUp'] = true);
+            document.getElementById('up-btn').addEventListener('touchend', () => this.keys['ArrowUp'] = false);
+            document.getElementById('down-btn').addEventListener('touchstart', () => this.keys['ArrowDown'] = true);
+            document.getElementById('down-btn').addEventListener('touchend', () => this.keys['ArrowDown'] = false);
+
+            // Shoot button
+            document.getElementById('shoot-btn').addEventListener('touchstart', () => {
+                if (!this.wasSpacePressed) {
+                    this.shoot();
+                }
+                this.keys[' '] = true;
+            });
+            document.getElementById('shoot-btn').addEventListener('touchend', () => {
+                this.keys[' '] = false;
+            });
+
+            // Show mobile controls on mobile devices
+            if (window.innerWidth <= 767) {
+                mobileControls.classList.remove('hidden');
+            }
+        }
     }
 
     startGame() {
