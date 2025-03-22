@@ -22,6 +22,15 @@ class BrowserHunter {
         this.explosions = []; // Add explosions array
         this.animationFrameId = null; // Track animation frame ID
 
+        // Power-up state
+        this.powerUps = []; // Array to track active power-ups in the world
+        this.activePowerUp = null; // Currently active power-up effect
+        this.powerUpEndTime = 0; // When the current power-up will end
+        this.lastPowerUpSpawn = 0; // Last time a power-up was spawned
+        this.powerUpSpawnInterval = 45000; // Minimum time between power-up spawns (45 seconds)
+        this.lastRapidFireShot = 0; // Track last rapid fire shot time
+        this.rapidFireInterval = 200; // Minimum time between rapid fire shots (200ms = 5 shots per second)
+
         // Audio
         this.backgroundMusic = document.getElementById('background-music');
         this.backgroundMusic.volume = 0.5; // Set volume to 50%
@@ -40,7 +49,7 @@ class BrowserHunter {
         // Building properties
         this.buildingSpawnDistance = 400; // Reduced from 1200 to 400 for more reasonable distance
         this.buildingRecycleDistance = 200; // Reduced from 600 to 200 for smoother recycling
-        this.buildingMinDistance = 100; // Reduced from 800 to 100 to allow closer spawning
+        this.buildingMinDistance = 100;
         this.buildingSideOffset = 15; // How far from the road buildings spawn
         this.playerSafeDistance = 100; // Reduced from 800 to 100 to allow closer spawning
 
@@ -332,20 +341,75 @@ class BrowserHunter {
     shoot(isEnemy = false) {
         if (this.gameOver) return;
 
-        const projectile = Models.createProjectile(isEnemy ? 0xff0000 : 0x00ff00); // Red for enemies, green for player
         if (isEnemy) {
+            const projectile = Models.createProjectile(0xff0000);
             projectile.position.copy(this.currentEnemy.position);
             projectile.position.y += 1;
-        } else {
+            this.scene.add(projectile);
+            this.projectiles.push({
+                mesh: projectile,
+                speed: 0.8,
+                isEnemy: true
+            });
+            return;
+        }
+
+        // Handle player shooting with power-ups
+        if (this.activePowerUp === 'rapidFire') {
+            // Rapid fire: continuous firing while button is held, with rate limiting
+            const currentTime = Date.now();
+            if ((this.keys[' '] || this.keys['FIRE']) && currentTime - this.lastRapidFireShot >= this.rapidFireInterval) {
+                const projectile = Models.createProjectile(0x00ff00);
+                projectile.position.copy(this.player.position);
+                projectile.position.y += 1;
+                this.scene.add(projectile);
+                this.projectiles.push({
+                    mesh: projectile,
+                    speed: 0.2,
+                    isEnemy: false
+                });
+                this.lastRapidFireShot = currentTime;
+            }
+        } else if (this.activePowerUp === 'wideShot') {
+            // Wide shot: shoot three projectiles in a spread pattern
+            const angles = [-15, 0, 15];
+            angles.forEach(angle => {
+                const projectile = Models.createProjectile(0x00ff00);
+                projectile.position.copy(this.player.position);
+                projectile.position.y += 1;
+                projectile.rotation.y = THREE.MathUtils.degToRad(angle);
+                this.scene.add(projectile);
+                this.projectiles.push({
+                    mesh: projectile,
+                    speed: 0.2,
+                    isEnemy: false,
+                    angle: angle
+                });
+            });
+        } else if (this.activePowerUp === 'homing') {
+            // Homing missiles: shoot a single homing projectile
+            const projectile = Models.createProjectile(0x00ff00);
             projectile.position.copy(this.player.position);
             projectile.position.y += 1;
+            this.scene.add(projectile);
+            this.projectiles.push({
+                mesh: projectile,
+                speed: 0.2,
+                isEnemy: false,
+                isHoming: true
+            });
+        } else {
+            // Normal shot
+            const projectile = Models.createProjectile(0x00ff00);
+            projectile.position.copy(this.player.position);
+            projectile.position.y += 1;
+            this.scene.add(projectile);
+            this.projectiles.push({
+                mesh: projectile,
+                speed: 0.2,
+                isEnemy: false
+            });
         }
-        this.scene.add(projectile);
-        this.projectiles.push({
-            mesh: projectile,
-            speed: isEnemy ? 0.8 : 0.2, // Enemy projectiles move much faster than enemies
-            isEnemy: isEnemy // Add flag to identify enemy projectiles
-        });
     }
 
     updateRoad() {
@@ -390,6 +454,11 @@ class BrowserHunter {
             this.roadSpeed = 0.5;
         }
 
+        // Handle continuous rapid fire
+        if (this.activePowerUp === 'rapidFire' && (this.keys[' '] || this.keys['FIRE'])) {
+            this.shoot();
+        }
+
         // Update spacebar state for next frame
         this.wasSpacePressed = this.keys[' '];
 
@@ -399,16 +468,52 @@ class BrowserHunter {
         // Update buildings position
         this.updateBuildings();
 
-        // Update projectiles
+        // Update power-ups
+        this.updatePowerUps();
+        
+        // Spawn new power-ups
+        this.spawnPowerUp();
+
+        // Update projectiles with homing behavior
         this.projectiles = this.projectiles.filter(proj => {
-            // Move projectiles in the correct direction based on who shot them
-            if (proj.isEnemy) {
-                proj.mesh.position.z += proj.speed; // Enemy projectiles move forward
+            if (proj.isHoming && !proj.isEnemy) {
+                // Find closest enemy
+                let closestEnemy = null;
+                let closestDistance = Infinity;
+                
+                this.enemies.forEach(enemy => {
+                    const distance = enemy.mesh.position.distanceTo(proj.mesh.position);
+                    if (distance < closestDistance) {
+                        closestDistance = distance;
+                        closestEnemy = enemy;
+                    }
+                });
+
+                if (closestEnemy) {
+                    // Move projectile towards closest enemy
+                    const direction = new THREE.Vector3()
+                        .subVectors(closestEnemy.mesh.position, proj.mesh.position)
+                        .normalize();
+                    proj.mesh.position.add(direction.multiplyScalar(proj.speed));
+                } else {
+                    // If no enemies, move forward
+                    proj.mesh.position.z -= proj.speed;
+                }
+            } else if (proj.angle !== undefined) {
+                // Handle wide shot projectiles
+                const direction = new THREE.Vector3(0, 0, -1);
+                direction.applyAxisAngle(new THREE.Vector3(0, 1, 0), THREE.MathUtils.degToRad(proj.angle));
+                proj.mesh.position.add(direction.multiplyScalar(proj.speed));
             } else {
-                proj.mesh.position.z -= proj.speed; // Player projectiles move backward
+                // Normal projectile movement
+                if (proj.isEnemy) {
+                    proj.mesh.position.z += proj.speed;
+                } else {
+                    proj.mesh.position.z -= proj.speed;
+                }
             }
             
-            // Remove projectiles that go too far in either direction
+            // Remove projectiles that go too far
             if (proj.mesh.position.z < -200 || proj.mesh.position.z > this.player.position.z + 50) {
                 this.scene.remove(proj.mesh);
                 return false;
@@ -461,14 +566,38 @@ class BrowserHunter {
             return true;
         });
 
-        // Update explosions
+        // Update explosions and vortex effects
         this.explosions = this.explosions.filter(explosion => {
             explosion.timeLeft -= 0.016; // Assuming 60fps
-            explosion.particles.forEach(particle => {
-                particle.mesh.position.add(particle.velocity);
-                particle.life -= 0.016;
-                particle.mesh.material.opacity = particle.life;
-            });
+            
+            if (explosion.isVortex) {
+                // Handle vortex particle animation
+                explosion.particles.forEach(particle => {
+                    // Rotate around the player
+                    particle.angle += particle.rotationSpeed;
+                    
+                    // Calculate current height based on time
+                    const progress = 1 - (explosion.timeLeft / 2.0); // 0 to 1 over 2 seconds
+                    const currentHeight = progress * particle.targetHeight;
+                    
+                    // Update position with rotation and rising motion
+                    particle.mesh.position.x = this.player.position.x + Math.cos(particle.angle) * particle.radius;
+                    particle.mesh.position.y = this.player.position.y + currentHeight;
+                    particle.mesh.position.z = this.player.position.z + Math.sin(particle.angle) * particle.radius;
+                    
+                    // Fade out and scale down
+                    particle.life -= 0.016;
+                    particle.mesh.material.opacity = particle.life * 0.8;
+                    particle.mesh.scale.setScalar(particle.initialScale * particle.life);
+                });
+            } else {
+                // Handle regular explosion particles
+                explosion.particles.forEach(particle => {
+                    particle.mesh.position.add(particle.velocity);
+                    particle.life -= 0.016;
+                    particle.mesh.material.opacity = particle.life;
+                });
+            }
             
             if (explosion.timeLeft <= 0) {
                 explosion.particles.forEach(particle => {
@@ -585,6 +714,13 @@ class BrowserHunter {
             this.scene.remove(this.scene.children[0]);
         }
         this.init();
+
+        // Reset power-up state
+        this.powerUps.forEach(powerUp => this.scene.remove(powerUp));
+        this.powerUps = [];
+        this.activePowerUp = null;
+        this.powerUpEndTime = 0;
+        this.lastPowerUpSpawn = 0;
     }
 
     createExplosion(position) {
@@ -596,6 +732,139 @@ class BrowserHunter {
         this.explosions.push({
             particles: particles,
             timeLeft: 1.0 // Life in seconds
+        });
+    }
+
+    spawnPowerUp() {
+        if (this.gameOver || this.activePowerUp) return;
+
+        const currentTime = Date.now();
+        if (currentTime - this.lastPowerUpSpawn < this.powerUpSpawnInterval) return;
+
+        // Randomly choose a power-up type
+        const types = ['rapidFire', 'wideShot', 'homing'];
+        const type = types[Math.floor(Math.random() * types.length)];
+        
+        // Create power-up
+        const powerUp = Models.createPowerUp(type);
+        
+        // Position power-up on the road
+        const xPos = (Math.random() - 0.5) * (this.roadWidth - 4);
+        powerUp.position.set(
+            xPos,
+            1, // Float slightly above the road
+            this.player.position.z - 200 // Spawn behind the player
+        );
+        
+        this.scene.add(powerUp);
+        this.powerUps.push(powerUp);
+        this.lastPowerUpSpawn = currentTime;
+    }
+
+    updatePowerUps() {
+        // Update power-up positions and animations
+        this.powerUps = this.powerUps.filter(powerUp => {
+            // Move power-up with the road
+            powerUp.position.z += this.roadSpeed;
+            
+            // Update pulsing animation
+            powerUp.userData.pulseScale += powerUp.userData.pulseSpeed * powerUp.userData.pulseDirection;
+            if (powerUp.userData.pulseScale >= 1.2) {
+                powerUp.userData.pulseDirection = -1;
+            } else if (powerUp.userData.pulseScale <= 0.8) {
+                powerUp.userData.pulseDirection = 1;
+            }
+            powerUp.scale.set(
+                powerUp.userData.pulseScale,
+                powerUp.userData.pulseScale,
+                powerUp.userData.pulseScale
+            );
+            
+            // Rotate power-up
+            powerUp.rotation.y += 0.02;
+            
+            // Check for collision with player
+            if (this.checkCollision(powerUp, this.player)) {
+                this.activatePowerUp(powerUp.userData.type);
+                this.scene.remove(powerUp);
+                return false;
+            }
+            
+            // Remove power-up if it goes too far behind
+            if (powerUp.position.z < -200) {
+                this.scene.remove(powerUp);
+                return false;
+            }
+            
+            return true;
+        });
+
+        // Update active power-up
+        if (this.activePowerUp && Date.now() >= this.powerUpEndTime) {
+            this.deactivatePowerUp();
+        }
+    }
+
+    activatePowerUp(type) {
+        if (this.activePowerUp) return; // Don't activate if another power-up is active
+        
+        this.activePowerUp = type;
+        this.powerUpEndTime = Date.now() + 12000; // 12 seconds duration
+        
+        // Update UI
+        const powerUpIndicator = document.getElementById('power-up-indicator');
+        powerUpIndicator.textContent = this.getPowerUpName(type);
+        powerUpIndicator.style.display = 'block';
+        
+        // Visual feedback
+        this.createPowerUpEffect();
+    }
+
+    deactivatePowerUp() {
+        this.activePowerUp = null;
+        this.powerUpEndTime = 0;
+        
+        // Update UI
+        const powerUpIndicator = document.getElementById('power-up-indicator');
+        powerUpIndicator.style.display = 'none';
+    }
+
+    getPowerUpName(type) {
+        switch(type) {
+            case 'rapidFire': return 'Rapid Fire!';
+            case 'wideShot': return 'Wide Shot!';
+            case 'homing': return 'Homing Missiles!';
+            default: return '';
+        }
+    }
+
+    createPowerUpEffect() {
+        // Create a vortex effect when power-up is activated
+        let color;
+        switch(this.activePowerUp) {
+            case 'rapidFire':
+                color = 0xffd700; // Gold
+                break;
+            case 'wideShot':
+                color = 0x0000ff; // Blue
+                break;
+            case 'homing':
+                color = 0x00ff00; // Green
+                break;
+            default:
+                color = 0xffffff;
+        }
+
+        const particles = Models.createVortexEffect(color);
+        particles.forEach(particle => {
+            particle.mesh.position.copy(this.player.position);
+            particle.mesh.position.y += 2; // Slightly above the player
+            this.scene.add(particle.mesh);
+        });
+        this.explosions.push({
+            particles: particles,
+            timeLeft: 2.0, // Longer duration for vortex effect
+            isVortex: true
         });
     }
 }

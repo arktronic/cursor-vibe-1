@@ -58,6 +58,17 @@ browserhunter/
    - Simple obstacles
    - Infinite scrolling background
 
+4. **Power-up System**
+   - Randomly spawned on track at low frequency
+   - Visual distinction through color-coding:
+     * Gold: Continuous Shooting (rapid-fire mode)
+     * Blue: Wide Shot (3-way spread fire)
+     * Green: Missile Lock-on (homing projectiles)
+   - Power-up duration: 10-15 seconds
+   - Only one active power-up at a time
+   - Visual and audio feedback when active
+   - Power-up status indicator in HUD
+
 ### Technical Requirements
 1. **Performance**
    - Target 60 FPS
@@ -75,7 +86,6 @@ browserhunter/
 
 ## Future Considerations
 - Multiplayer support
-- Power-ups
 - Different weapon types
 - More complex city layouts
 - Sound effects and music

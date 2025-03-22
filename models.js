@@ -394,6 +394,86 @@ const Models = {
         }
         
         return particles;
+    },
+
+    createVortexEffect(color) {
+        const particles = [];
+        const particleCount = 60; // Increased for more density
+        const particleGeometry = new THREE.SphereGeometry(0.8, 8, 8);
+        const particleMaterial = new THREE.MeshPhongMaterial({ 
+            color: color,
+            emissive: color,
+            emissiveIntensity: 0.5,
+            transparent: true,
+            opacity: 0.8
+        });
+        
+        // Create two spirals for a fuller effect
+        for (let i = 0; i < particleCount; i++) {
+            const particle = new THREE.Mesh(particleGeometry, particleMaterial);
+            const angle = (i / particleCount) * Math.PI * 2;
+            const radius = 3; // Decreased radius to be closer to car
+            
+            particles.push({
+                mesh: particle,
+                initialPosition: new THREE.Vector3(
+                    Math.cos(angle) * radius,
+                    0, // Start at ground level
+                    Math.sin(angle) * radius
+                ),
+                angle: angle,
+                radius: radius,
+                rotationSpeed: 0.1 + Math.random() * 0.1,
+                life: 1.0,
+                initialScale: 0.8 + Math.random() * 0.4,
+                targetHeight: 2 + Math.random() * 1 // Decreased target height to be closer to car
+            });
+        }
+        
+        return particles;
+    },
+
+    createPowerUp(type) {
+        // Create a floating power-up with a distinctive shape and color
+        const geometry = new THREE.OctahedronGeometry(1, 0);
+        let color, emissive;
+        
+        switch(type) {
+            case 'rapidFire':
+                color = 0xffd700; // Gold
+                emissive = 0xffa500;
+                break;
+            case 'wideShot':
+                color = 0x0000ff; // Blue
+                emissive = 0x00ffff;
+                break;
+            case 'homing':
+                color = 0x00ff00; // Green
+                emissive = 0x00ff00;
+                break;
+            default:
+                color = 0xffffff;
+                emissive = 0xffffff;
+        }
+
+        const material = new THREE.MeshPhongMaterial({
+            color: color,
+            emissive: emissive,
+            emissiveIntensity: 0.5,
+            shininess: 100
+        });
+
+        const powerUp = new THREE.Mesh(geometry, material);
+        
+        // Add a pulsing animation
+        powerUp.userData = {
+            type: type,
+            pulseSpeed: 0.05,
+            pulseScale: 1.0,
+            pulseDirection: 1
+        };
+
+        return powerUp;
     }
 };
 
